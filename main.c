@@ -8,6 +8,7 @@
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 #define FONT_SIZE 24
+#define LINE_NUMBER_MARGIN 50
 #define FONT_PATH "/Users/nikitavoitik/Documents/prog/cpp/TextEditor/Arial.ttf"
 
 
@@ -162,15 +163,38 @@ void cleanup(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font) {
 void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MAX_LINE_LENGTH], int cursor_pos,
                 int current_line, int x, int y, int line_count) {
     SDL_Color white = {255, 255, 255, 255};
-    int cursor_x = x;
+    int cursor_x = x;  
     int cursor_y = y;
-    for (int i = 0; i <= line_count && i < MAX_LINES; i++) {
+
+    for (int i = 0; i < line_count && i < MAX_LINES; i++) {
+        char line_number[10];
+        snprintf(line_number, sizeof(line_number), "%d", i + 1);
+        
+        SDL_Surface *lineNumberSurface = TTF_RenderText_Solid(font, line_number, white);
+        if (!lineNumberSurface) {
+            printf("Line number render error: %s\n", TTF_GetError());
+            return;
+        }
+
+        SDL_Texture *lineNumberTexture = SDL_CreateTextureFromSurface(renderer, lineNumberSurface);
+        if (!lineNumberTexture) {
+            printf("Line number texture creation error: %s\n", SDL_GetError());
+            SDL_FreeSurface(lineNumberSurface);
+            return;
+        }
+        
+        SDL_Rect lineNumberRect = {5, y + i * lineNumberSurface->h, lineNumberSurface->w, lineNumberSurface->h};
+        SDL_RenderCopy(renderer, lineNumberTexture, nullptr, &lineNumberRect);
+
+        SDL_FreeSurface(lineNumberSurface);
+        SDL_DestroyTexture(lineNumberTexture);
+        
         char newString[MAX_LINE_LENGTH];
         strcpy(newString, lines[i]);
-
         if (newString[0] == '\0') {
             strcpy(newString, " \0");
         }
+
         SDL_Surface *surfaceMessage = TTF_RenderText_Solid(font, newString, white);
         if (!surfaceMessage) {
             printf("Text render error: %s\n", TTF_GetError());
@@ -183,7 +207,7 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
             SDL_FreeSurface(surfaceMessage);
             return;
         }
-
+        
         SDL_Rect messageRect = {x, y + i * surfaceMessage->h, surfaceMessage->w, surfaceMessage->h};
         SDL_RenderCopy(renderer, messageTexture, nullptr, &messageRect);
 
@@ -206,9 +230,11 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
     }
 
     SDL_Rect cursorRect = {cursor_x, cursor_y, 2, FONT_SIZE};
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);  
     SDL_RenderFillRect(renderer, &cursorRect);
 }
+
+
 
 void handleTextInput(char lines[MAX_LINES][MAX_LINE_LENGTH], const char *input, int *cursor_pos, int current_line) {
     int len = strlen(lines[current_line]);
@@ -312,6 +338,7 @@ void moveCursorUp(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *
     if (*cursor_pos >= len) {
         *cursor_pos = len;
     }
+
 }
 
 void moveCursorDown(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line, int *line_count) {
