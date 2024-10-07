@@ -37,6 +37,14 @@ void insertLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int *line_cou
 
 void removeLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int *line_count);
 
+void optLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
+
+void optRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
+
+void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
+
+void cmdLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
+
 int main() {
     SDL_Window *window = nullptr;
     SDL_Renderer *renderer = nullptr;
@@ -61,7 +69,7 @@ int main() {
     while (!done) {
         SDL_Event event;
         if (SDL_PollEvent(&event)) {
-
+            SDL_Keymod mod = SDL_GetModState();
             switch (event.type) {
                 case SDL_QUIT:
                     done = SDL_TRUE;
@@ -74,11 +82,24 @@ int main() {
                 case SDL_KEYDOWN:
                     switch (event.key.keysym.sym) {
                         case SDLK_LEFT:
-                            moveCursorLeft(lines, &cursor_pos, &current_line);
+                            if (mod & KMOD_ALT) {
+                                optLeft(lines, &cursor_pos, &current_line);
+                            } else if (mod & KMOD_GUI) {
+                                cmdLeft(lines, &cursor_pos, &current_line);
+                            } else {
+                                moveCursorLeft(lines, &cursor_pos, &current_line);
+                            }
                             break;
 
                         case SDLK_RIGHT:
-                            moveCursorRight(lines, &cursor_pos, &current_line);
+                            if (mod & KMOD_ALT) {
+                                optRight(lines, &cursor_pos, &current_line);
+                            } else if (mod & KMOD_GUI){
+                                cmdRight(lines, &cursor_pos, &current_line);
+                            }
+                            else {
+                                moveCursorRight(lines, &cursor_pos, &current_line);
+                            }
                             break;
 
                         case SDLK_BACKSPACE:
@@ -163,13 +184,13 @@ void cleanup(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font) {
 void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MAX_LINE_LENGTH], int cursor_pos,
                 int current_line, int x, int y, int line_count) {
     SDL_Color white = {255, 255, 255, 255};
-    int cursor_x = x;  
+    int cursor_x = x;
     int cursor_y = y;
 
     for (int i = 0; i < line_count && i < MAX_LINES; i++) {
         char line_number[10];
         snprintf(line_number, sizeof(line_number), "%d", i + 1);
-        
+
         SDL_Surface *lineNumberSurface = TTF_RenderText_Solid(font, line_number, white);
         if (!lineNumberSurface) {
             printf("Line number render error: %s\n", TTF_GetError());
@@ -182,13 +203,13 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
             SDL_FreeSurface(lineNumberSurface);
             return;
         }
-        
+
         SDL_Rect lineNumberRect = {5, y + i * lineNumberSurface->h, lineNumberSurface->w, lineNumberSurface->h};
         SDL_RenderCopy(renderer, lineNumberTexture, nullptr, &lineNumberRect);
 
         SDL_FreeSurface(lineNumberSurface);
         SDL_DestroyTexture(lineNumberTexture);
-        
+
         char newString[MAX_LINE_LENGTH];
         strcpy(newString, lines[i]);
         if (newString[0] == '\0') {
@@ -207,7 +228,7 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
             SDL_FreeSurface(surfaceMessage);
             return;
         }
-        
+
         SDL_Rect messageRect = {x, y + i * surfaceMessage->h, surfaceMessage->w, surfaceMessage->h};
         SDL_RenderCopy(renderer, messageTexture, nullptr, &messageRect);
 
@@ -230,10 +251,9 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
     }
 
     SDL_Rect cursorRect = {cursor_x, cursor_y, 2, FONT_SIZE};
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);  
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderFillRect(renderer, &cursorRect);
 }
-
 
 
 void handleTextInput(char lines[MAX_LINES][MAX_LINE_LENGTH], const char *input, int *cursor_pos, int current_line) {
@@ -338,7 +358,6 @@ void moveCursorUp(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *
     if (*cursor_pos >= len) {
         *cursor_pos = len;
     }
-
 }
 
 void moveCursorDown(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line, int *line_count) {
@@ -352,4 +371,48 @@ void moveCursorDown(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int
     if (*cursor_pos >= len) {
         *cursor_pos = len;
     }
+}
+
+void optLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line) {
+    int i;
+    for (i = *cursor_pos - 1; i >= 0; i--) {
+        if (lines[*current_line][i] != ' ') {
+            break;
+        }
+    }
+
+    for (; i >= 0; i--) {
+        if (lines[*current_line][i] == ' ') {
+            *cursor_pos = i + 1;
+            return;
+        }
+    }
+    *cursor_pos = 0;
+}
+
+void optRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line) {
+    int i;
+    int len = strlen(lines[*current_line]);
+    for (i = *cursor_pos; i < len; i++) {
+        if (lines[*current_line][i] != ' ') {
+            break;
+        }
+    }
+
+    for (; i < len; i++) {
+        if (lines[*current_line][i] == ' ') {
+            *cursor_pos = i;
+            return;
+        }
+    }
+    *cursor_pos = len;
+}
+
+void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line){
+    int len = strlen(lines[*current_line]);
+    *cursor_pos = len;
+}
+
+void cmdLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line){
+    *cursor_pos = 0;
 }
