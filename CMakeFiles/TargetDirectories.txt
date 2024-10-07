@@ -1,3 +1,0 @@
-/Users/nikitavoitik/Documents/prog/cpp/TextEditor/CMakeFiles/TextEditor.dir
-/Users/nikitavoitik/Documents/prog/cpp/TextEditor/CMakeFiles/edit_cache.dir
-/Users/nikitavoitik/Documents/prog/cpp/TextEditor/CMakeFiles/rebuild_cache.dir
