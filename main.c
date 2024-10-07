@@ -4,12 +4,11 @@
 #include <string.h>
 
 #define MAX_LINES 100
-#define MAX_LINE_LENGTH 256
+#define MAX_LINE_LENGTH 1000
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 #define FONT_SIZE 24
-#define LINE_NUMBER_MARGIN 50
-#define FONT_PATH "/Users/nikitavoitik/Documents/prog/cpp/TextEditor/Arial.ttf"
+#define FONT_PATH "/Users/nikitavoitik/Documents/prog/cpp/TextEditor/IBMPlexMono-Regular.ttf"
 
 
 int init(SDL_Window **window, SDL_Renderer **renderer, TTF_Font **font);
@@ -31,34 +30,30 @@ void moveCursorRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, in
 
 void moveCursorUp(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
 
-void moveCursorDown(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line, int *line_count);
+void moveCursorDown(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line, int line_count);
 
-void insertLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int *line_count);
+void insertLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int line_count);
 
 void removeLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int *line_count);
 
-void optLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
+void optLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int current_line);
 
-void optRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
+void optRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int current_line);
 
-void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
+void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int current_line);
 
-void cmdLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line);
+void cmdLeft(int *cursor_pos);
 
 int main() {
     SDL_Window *window = nullptr;
     SDL_Renderer *renderer = nullptr;
     TTF_Font *font = nullptr;
 
-
     if (init(&window, &renderer, &font) != 0) {
         return 1;
     }
 
     char lines[MAX_LINES][MAX_LINE_LENGTH] = {{0}};
-    for (int i = 0; i < MAX_LINES; i++) {
-        strncpy(lines[i], "\0", 1);
-    }
     int cursor_pos = 0;
     int current_line = 0;
     int line_count = 1;
@@ -83,9 +78,9 @@ int main() {
                     switch (event.key.keysym.sym) {
                         case SDLK_LEFT:
                             if (mod & KMOD_ALT) {
-                                optLeft(lines, &cursor_pos, &current_line);
+                                optLeft(lines, &cursor_pos, current_line);
                             } else if (mod & KMOD_GUI) {
-                                cmdLeft(lines, &cursor_pos, &current_line);
+                                cmdLeft(&cursor_pos);
                             } else {
                                 moveCursorLeft(lines, &cursor_pos, &current_line);
                             }
@@ -93,9 +88,9 @@ int main() {
 
                         case SDLK_RIGHT:
                             if (mod & KMOD_ALT) {
-                                optRight(lines, &cursor_pos, &current_line);
+                                optRight(lines, &cursor_pos, current_line);
                             } else if (mod & KMOD_GUI){
-                                cmdRight(lines, &cursor_pos, &current_line);
+                                cmdRight(lines, &cursor_pos, current_line);
                             }
                             else {
                                 moveCursorRight(lines, &cursor_pos, &current_line);
@@ -113,9 +108,8 @@ int main() {
                         case SDLK_UP:
                             moveCursorUp(lines, &cursor_pos, &current_line);
                             break;
-
                         case SDLK_DOWN:
-                            moveCursorDown(lines, &cursor_pos, &current_line, &line_count);
+                            moveCursorDown(lines, &cursor_pos, &current_line, line_count);
                             break;
                     }
                     break;
@@ -244,7 +238,7 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
                 cursor_x = x + surfaceCursor->w;
                 SDL_FreeSurface(surfaceCursor);
             }
-            cursor_y = y + i * surfaceMessage->h;
+            cursor_y = y + i * surfaceMessage->h + 4;
         }
         SDL_FreeSurface(surfaceMessage);
         SDL_DestroyTexture(messageTexture);
@@ -260,39 +254,34 @@ void handleTextInput(char lines[MAX_LINES][MAX_LINE_LENGTH], const char *input, 
     int len = strlen(lines[current_line]);
     int input_len = strlen(input);
 
-    if (len + input_len < MAX_LINE_LENGTH) {
-        memmove(lines[current_line] + *cursor_pos + input_len, lines[current_line] + *cursor_pos,
-                len - *cursor_pos + 1);
-        memcpy(lines[current_line] + *cursor_pos, input, input_len);
-        *cursor_pos += input_len;
-    } else {
+    if (len + input_len >= MAX_LINE_LENGTH) {
         printf("Line buffer is full!\n");
+        return;
     }
+
+    memmove(lines[current_line] + *cursor_pos + input_len, lines[current_line] + *cursor_pos, len - *cursor_pos + 1);
+    memcpy(lines[current_line] + *cursor_pos, input, input_len);
+    *cursor_pos += input_len;
 }
 
 void handleEnterKey(char lines[MAX_LINES][MAX_LINE_LENGTH], int *current_line, int *cursor_pos, int *line_count) {
     if (*line_count >= MAX_LINES - 1) {
         return;
     }
-    if (*current_line >= MAX_LINES - 1) {
-        return;
-    }
 
-    insertLine(lines, *current_line + 1, line_count);
-    strncpy(lines[*current_line + 1], lines[*current_line] + *cursor_pos * sizeof(char), MAX_LINE_LENGTH - 1);
+    insertLine(lines, *current_line + 1, *line_count);
+    memcpy(lines[*current_line + 1], lines[*current_line] + *cursor_pos, (MAX_LINE_LENGTH - 1) * sizeof(char));
     lines[*current_line][*cursor_pos] = '\0';
 
     *cursor_pos = 0;
     (*line_count)++;
-    moveCursorDown(lines, cursor_pos, current_line, line_count);
 
+    moveCursorDown(lines, cursor_pos, current_line, *line_count);
 }
 
-void insertLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int *line_count) {
-    for (int i = *line_count; i > index; i--) {
-        strcpy(lines[i], lines[i - 1]);
-    }
-    strncpy(lines[index], "\0", 1);
+void insertLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int line_count) {
+    memmove(&lines[index + 1], &lines[index], (line_count - index) * sizeof(lines[0]));
+    memset(lines[index], 0, sizeof(lines[0]));
 }
 
 void removeLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int *line_count) {
@@ -300,11 +289,11 @@ void removeLine(char lines[MAX_LINES][MAX_LINE_LENGTH], int index, int *line_cou
         return;
     }
 
-    for (int i = index; i < *line_count - 1; i++) {
-        strcpy(lines[i], lines[i + 1]);
+    if (index < *line_count - 1) {
+        memmove(lines + index, lines + index + 1, (*line_count - index - 1) * sizeof(lines[0]));
     }
 
-    strncpy(lines[*line_count - 1], "\0", 1);
+    memset(lines[*line_count - 1], 0, sizeof(lines[0]));
     (*line_count)--;
 }
 
@@ -314,7 +303,6 @@ void handleBackspace(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, in
         memmove(lines[*current_line] + *cursor_pos - 1, lines[*current_line] + *cursor_pos, len - *cursor_pos + 1);
         (*cursor_pos)--;
     } else if (*current_line > 0) {
-
         int prev_len = strlen(lines[*current_line - 1]);
         int cur_len = strlen(lines[*current_line]);
 
@@ -342,7 +330,7 @@ void moveCursorRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, in
         (*cursor_pos)++;
     } else if (*current_line < MAX_LINES - 1 && lines[*current_line + 1][0] != '\0') {
         (*current_line)++;
-        (*cursor_pos) = 0;
+        *cursor_pos = 0;
     }
 }
 
@@ -355,64 +343,58 @@ void moveCursorUp(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *
 
     (*current_line)--;
     int len = strlen(lines[*current_line]);
-    if (*cursor_pos >= len) {
+    if (*cursor_pos > len) {
         *cursor_pos = len;
     }
 }
 
-void moveCursorDown(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line, int *line_count) {
-    if (*current_line >= *line_count - 1) {
-        *current_line = *line_count - 1;
+void moveCursorDown(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line, int line_count) {
+    if (*current_line >= line_count - 1) {
+        *current_line = line_count - 1;
         return;
     }
 
     (*current_line)++;
     int len = strlen(lines[*current_line]);
-    if (*cursor_pos >= len) {
+    if (*cursor_pos > len) {
         *cursor_pos = len;
     }
 }
 
-void optLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line) {
-    int i;
-    for (i = *cursor_pos - 1; i >= 0; i--) {
-        if (lines[*current_line][i] != ' ') {
-            break;
-        }
+void optLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int current_line) {
+    int i = *cursor_pos - 1;
+
+    while (i >= 0 && lines[current_line][i] == ' ') {
+        i--;
     }
 
-    for (; i >= 0; i--) {
-        if (lines[*current_line][i] == ' ') {
-            *cursor_pos = i + 1;
-            return;
-        }
+    while (i >= 0 && lines[current_line][i] != ' ') {
+        i--;
     }
-    *cursor_pos = 0;
+
+    *cursor_pos = i + 1;
 }
 
-void optRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line) {
-    int i;
-    int len = strlen(lines[*current_line]);
-    for (i = *cursor_pos; i < len; i++) {
-        if (lines[*current_line][i] != ' ') {
-            break;
-        }
+void optRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int current_line) {
+    int len = strlen(lines[current_line]);
+    int i = *cursor_pos;
+
+    while (i < len && lines[current_line][i] == ' ') {
+        i++;
     }
 
-    for (; i < len; i++) {
-        if (lines[*current_line][i] == ' ') {
-            *cursor_pos = i;
-            return;
-        }
+    while (i < len && lines[current_line][i] != ' ') {
+        i++;
     }
+
+    *cursor_pos = i;
+}
+
+void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int current_line) {
+    int len = strlen(lines[current_line]);
     *cursor_pos = len;
 }
 
-void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line){
-    int len = strlen(lines[*current_line]);
-    *cursor_pos = len;
-}
-
-void cmdLeft(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int *current_line){
+void cmdLeft(int *cursor_pos) {
     *cursor_pos = 0;
 }
