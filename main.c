@@ -4,11 +4,12 @@
 #include <string.h>
 
 #define MAX_LINES 100
-#define MAX_LINE_LENGTH 1000
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
+#define MAX_LINE_LENGTH 115
+#define WINDOW_WIDTH 1710
+#define WINDOW_HEIGHT 900
 #define FONT_SIZE 24
-#define FONT_PATH "/Users/nikitavoitik/Documents/prog/cpp/TextEditor/IBMPlexMono-Regular.ttf"
+#define FONT_PATH "../IBMPlexMono-Regular.ttf"
+#define SCROLL_SPEED 20
 
 
 int init(SDL_Window **window, SDL_Renderer **renderer, TTF_Font **font);
@@ -16,7 +17,7 @@ int init(SDL_Window **window, SDL_Renderer **renderer, TTF_Font **font);
 void cleanup(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font);
 
 void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MAX_LINE_LENGTH], int cursor_pos,
-                int current_line, int x, int y, int line_count);
+                int current_line, int x, int y, int line_count, int *scroll_offset, int window_height);
 
 void handleTextInput(char lines[MAX_LINES][MAX_LINE_LENGTH], const char *input, int *cursor_pos, int current_line);
 
@@ -44,6 +45,8 @@ void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int curre
 
 void cmdLeft(int *cursor_pos);
 
+void handleScroll(SDL_Event event, int *scroll_offset);
+
 int main() {
     SDL_Window *window = nullptr;
     SDL_Renderer *renderer = nullptr;
@@ -57,12 +60,16 @@ int main() {
     int cursor_pos = 0;
     int current_line = 0;
     int line_count = 1;
+    int scroll_offset = 0;
+    SDL_SetWindowMinimumSize(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     SDL_bool done = SDL_FALSE;
     SDL_StartTextInput();
 
     while (!done) {
         SDL_Event event;
+        int window_width, window_height;
+        SDL_GetWindowSize(window, &window_width, &window_height);
         if (SDL_PollEvent(&event)) {
             SDL_Keymod mod = SDL_GetModState();
             switch (event.type) {
@@ -89,10 +96,9 @@ int main() {
                         case SDLK_RIGHT:
                             if (mod & KMOD_ALT) {
                                 optRight(lines, &cursor_pos, current_line);
-                            } else if (mod & KMOD_GUI){
+                            } else if (mod & KMOD_GUI) {
                                 cmdRight(lines, &cursor_pos, current_line);
-                            }
-                            else {
+                            } else {
                                 moveCursorRight(lines, &cursor_pos, &current_line);
                             }
                             break;
@@ -113,12 +119,14 @@ int main() {
                             break;
                     }
                     break;
+                case SDL_MOUSEWHEEL:
+                    handleScroll(event, &scroll_offset);
+                    break;
             }
         }
-
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-        renderText(renderer, font, lines, cursor_pos, current_line, 50, 50, line_count);
+        renderText(renderer, font, lines, cursor_pos, current_line, 50, 50, line_count, &scroll_offset, window_height);
         SDL_RenderPresent(renderer);
     }
     cleanup(window, renderer, font);
@@ -137,8 +145,8 @@ int init(SDL_Window **window, SDL_Renderer **renderer, TTF_Font **font) {
         return 1;
     }
 
-    *window = SDL_CreateWindow("SDL2 Text Input", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH,
-                               WINDOW_HEIGHT, SDL_WINDOW_SHOWN);
+    *window = SDL_CreateWindow("SDL2 Text Input", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                               WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (!*window) {
         printf("SDL_CreateWindow Error: %s\n", SDL_GetError());
         SDL_Quit();
@@ -176,8 +184,9 @@ void cleanup(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font) {
 }
 
 void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MAX_LINE_LENGTH], int cursor_pos,
-                int current_line, int x, int y, int line_count) {
+                int current_line, int x, int y, int line_count, int *scroll_offset, int window_height) {
     SDL_Color white = {255, 255, 255, 255};
+    y = y - *scroll_offset;
     int cursor_x = x;
     int cursor_y = y;
 
@@ -224,6 +233,9 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
         }
 
         SDL_Rect messageRect = {x, y + i * surfaceMessage->h, surfaceMessage->w, surfaceMessage->h};
+        if (messageRect.y + messageRect.h > 0 && messageRect.y < window_height) {
+            SDL_RenderCopy(renderer, messageTexture, nullptr, &messageRect);
+        }
         SDL_RenderCopy(renderer, messageTexture, nullptr, &messageRect);
 
         if (i == current_line) {
@@ -239,6 +251,7 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
                 SDL_FreeSurface(surfaceCursor);
             }
             cursor_y = y + i * surfaceMessage->h + 4;
+            //printf("cursor_y: %d, window_height: %d, scroll_ofsett: %d\n", cursor_y, window_height, *scroll_offset);
         }
         SDL_FreeSurface(surfaceMessage);
         SDL_DestroyTexture(messageTexture);
@@ -249,6 +262,13 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
     SDL_RenderFillRect(renderer, &cursorRect);
 }
 
+void handleScroll(SDL_Event event, int *scroll_offset) {
+    if (event.type == SDL_MOUSEWHEEL) {
+        *scroll_offset -= event.wheel.y * SCROLL_SPEED;
+        if (*scroll_offset < 0)
+            *scroll_offset = 0;
+    }
+}
 
 void handleTextInput(char lines[MAX_LINES][MAX_LINE_LENGTH], const char *input, int *cursor_pos, int current_line) {
     int len = strlen(lines[current_line]);
