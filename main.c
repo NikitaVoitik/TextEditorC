@@ -2,6 +2,7 @@
 #include <SDL_ttf.h>
 #include <stdio.h>
 #include <string.h>
+#include "tinyfiledialogs.h"
 
 #define MAX_LINES 100
 #define MAX_LINE_LENGTH 115
@@ -46,6 +47,11 @@ void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int curre
 void cmdLeft(int *cursor_pos);
 
 void handleScroll(SDL_Event event, int *scroll_offset);
+
+void SaveDialog(char lines[MAX_LINES][MAX_LINE_LENGTH]);
+
+void OpenDialog(char lines[MAX_LINES][MAX_LINE_LENGTH], int *line_count, int *current_line, int *cursor_pos);
+
 
 int main() {
     SDL_Window *window = nullptr;
@@ -116,6 +122,18 @@ int main() {
                             break;
                         case SDLK_DOWN:
                             moveCursorDown(lines, &cursor_pos, &current_line, line_count);
+                            break;
+
+                        case SDLK_s:
+                            if (mod & KMOD_CTRL) {
+                                SaveDialog(lines);
+                            }
+                            break;
+
+                        case SDLK_o:
+                            if (mod & KMOD_CTRL) {
+                                OpenDialog(lines, &line_count, &current_line, &cursor_pos);
+                            }
                             break;
                     }
                     break;
@@ -251,7 +269,7 @@ void renderText(SDL_Renderer *renderer, TTF_Font *font, char lines[MAX_LINES][MA
                 SDL_FreeSurface(surfaceCursor);
             }
             cursor_y = y + i * surfaceMessage->h + 4;
-            //printf("cursor_y: %d, window_height: %d, scroll_ofsett: %d\n", cursor_y, window_height, *scroll_offset);
+            
         }
         SDL_FreeSurface(surfaceMessage);
         SDL_DestroyTexture(messageTexture);
@@ -417,4 +435,71 @@ void cmdRight(char lines[MAX_LINES][MAX_LINE_LENGTH], int *cursor_pos, int curre
 
 void cmdLeft(int *cursor_pos) {
     *cursor_pos = 0;
+}
+
+void OpenDialog(char lines[MAX_LINES][MAX_LINE_LENGTH], int *line_count, int *current_line, int *cursor_pos) {
+    
+    for (int i = 0; i < MAX_LINES; i++) {
+        lines[i][0] = '\0';
+    }
+
+    const char *openPath = tinyfd_openFileDialog(
+            "Open Text File",
+            "",
+            1,
+            (const char *[]) {"*.txt"},
+            "Text files",
+            0
+    );
+
+    if (openPath) {
+        FILE *file = fopen(openPath, "r");
+        if (file == NULL) {
+            printf("Error: Could not open file for reading.\n");
+            return;
+        }
+        *current_line = 0;
+        *cursor_pos = 0;
+        int i = 0;
+        while (i < MAX_LINES && fgets(lines[i], MAX_LINE_LENGTH, file)) {
+            lines[i][strcspn(lines[i], "\n")] = '\0';
+            i++;
+        }
+
+        for (i = 0; i < MAX_LINES; i++) {
+            if (lines[i][0] != '\0') {
+                *line_count = i + 1;
+            }
+        }
+
+        fclose(file);
+    } else {
+        printf("Open dialog was canceled.\n");
+    }
+}
+
+
+void SaveDialog(char lines[MAX_LINES][MAX_LINE_LENGTH]) {
+    const char *savePath = tinyfd_saveFileDialog(
+            "Save Text File",
+            "untitled.txt",
+            1,
+            (const char*[]){"*.txt"},
+            "Text files");
+
+    if (savePath) {
+        FILE *file = fopen(savePath, "w");
+        if (file == NULL) {
+            printf("Error: Could not open file for writing.\n");
+            return;
+        }
+
+        for (int i = 0; i < MAX_LINES; ++i) {
+            fprintf(file, "%s\n", lines[i]);
+        }
+
+        fclose(file);
+    } else {
+        printf("Save dialog was canceled.\n");
+    }
 }
