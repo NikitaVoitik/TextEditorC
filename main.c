@@ -141,11 +141,12 @@ int main() {
                     handleScroll(event, &scroll_offset);
                     break;
             }
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+            renderText(renderer, font, lines, cursor_pos, current_line, 50, 50, line_count, &scroll_offset, window_height);
+            SDL_RenderPresent(renderer);
         }
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        renderText(renderer, font, lines, cursor_pos, current_line, 50, 50, line_count, &scroll_offset, window_height);
-        SDL_RenderPresent(renderer);
+
     }
     cleanup(window, renderer, font);
     return 0;
